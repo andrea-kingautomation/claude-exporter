@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.8.9]
+
+- Added version number display centered below popup header
+
 ## [1.8.8]
 
 - Export All from popup now always creates a ZIP for all formats (JSON, markdown, text)
