@@ -10,6 +10,8 @@
 
 - Added version number display centered below popup header
 
+_Published_
+
 ## [1.8.8]
 
 - Export All from popup now always creates a ZIP for all formats (JSON, markdown, text)
