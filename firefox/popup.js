@@ -11,7 +11,7 @@ async function getOrgId() {
 document.addEventListener('DOMContentLoaded', async () => {
   // Display version from manifest
   const manifest = chrome.runtime.getManifest();
-  document.getElementById('versionDisplay').textContent = `v${manifest.version}`;
+  document.getElementById('header-version').textContent = `v${manifest.version}`;
 
   const orgId = await getOrgId();
   if (!orgId) {
