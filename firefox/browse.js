@@ -70,6 +70,7 @@ let filteredConversations = [];
 let allProjects = [];
 let projectsMap = {}; // Map project UUID to project name
 let orgId = null;
+let cookieStoreId = 'firefox-default'; // Set from URL param on load, used by all API calls
 let currentSort = 'updated_desc';
 let sortStack = []; // Track multi-level sorting: [{field: 'name', direction: 'asc'}, ...]
 let selectedConversations = new Set(); // Track selected conversation IDs
@@ -120,7 +121,7 @@ function inferModel(conversation) {
 async function loadOrgId() {
   // Read the container ID passed via URL param from popup
   const params = new URLSearchParams(window.location.search);
-  const cookieStoreId = params.get('container') || 'firefox-default';
+  cookieStoreId = params.get('container') || 'firefox-default'; // Set global
 
   return new Promise((resolve) => {
     chrome.storage.sync.get(['containerOrgs', 'organizationId'], (result) => {
