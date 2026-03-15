@@ -78,20 +78,42 @@ function inferModel(conversation) {
   
   // Fetch all conversations
   async function fetchAllConversations(orgId) {
-    const url = `https://claude.ai/api/organizations/${orgId}/chat_conversations`;
-    
-    const response = await fetch(url, {
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json',
+    // Fetch in pages of 50 to avoid server-side timeouts on large accounts
+    const PAGE_SIZE = 50;
+    let allConversations = [];
+    let lastId = null;
+    let page = 0;
+
+    while (true) {
+      let url = `https://claude.ai/api/organizations/${orgId}/chat_conversations?limit=${PAGE_SIZE}`;
+      if (lastId) {
+        url += `&before_conversation_id=${lastId}`;
       }
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch conversations: ${response.status}`);
+
+      const response = await fetch(url, {
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (!response.ok) {
+        if (page === 0) {
+          throw new Error(`Failed to fetch conversations: ${response.status}`);
+        }
+        break;
+      }
+
+      const batch = await response.json();
+      if (!Array.isArray(batch) || batch.length === 0) break;
+
+      allConversations = allConversations.concat(batch);
+      page++;
+
+      if (batch.length < PAGE_SIZE) break;
+
+      lastId = batch[batch.length - 1].uuid;
     }
-    
-    return await response.json();
+
+    return allConversations;
   }
 
   // Handle messages from popup
