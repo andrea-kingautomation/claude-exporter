@@ -149,7 +149,7 @@ document.getElementById('exportCurrent').addEventListener('click', async () => {
   document.getElementById('browseConversations').addEventListener('click', async () => {
     const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
     const cookieStoreId = (tab && tab.cookieStoreId) ? tab.cookieStoreId : 'firefox-default';
-    chrome.tabs.create({ url: chrome.runtime.getURL('browse.html') + '?container=' + encodeURIComponent(cookieStoreId) });
+    browser.tabs.create({ url: browser.runtime.getURL('browse.html') + '?container=' + encodeURIComponent(cookieStoreId), cookieStoreId: cookieStoreId });
   });
 
   // Export all conversations
