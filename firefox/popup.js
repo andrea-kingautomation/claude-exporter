@@ -1,8 +1,17 @@
-// Get organization ID from storage
+// Get organization ID from storage, container-aware for Firefox Multi-Account Containers
 async function getOrgId() {
+  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+  const cookieStoreId = (tab && tab.cookieStoreId) ? tab.cookieStoreId : 'firefox-default';
+
   return new Promise((resolve) => {
-    chrome.storage.sync.get(['organizationId'], (result) => {
-      resolve(result.organizationId);
+    chrome.storage.sync.get(['containerOrgs', 'organizationId'], (result) => {
+      const containerOrgs = result.containerOrgs || {};
+      let orgId = containerOrgs[cookieStoreId];
+      // Fallback to legacy single-value for default container (pre-migration)
+      if (!orgId && cookieStoreId === 'firefox-default' && result.organizationId) {
+        orgId = result.organizationId;
+      }
+      resolve(orgId);
     });
   });
 }
@@ -47,9 +56,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // Handle options link click
-document.getElementById('openOptions').addEventListener('click', (e) => {
+document.getElementById('openOptions').addEventListener('click', async (e) => {
   e.preventDefault();
-  chrome.runtime.openOptionsPage();
+  // Pass the current tab's container ID so options page configures the right account
+  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+  const cookieStoreId = (tab && tab.cookieStoreId) ? tab.cookieStoreId : 'firefox-default';
+  chrome.tabs.create({ url: chrome.runtime.getURL('options.html') + '?container=' + encodeURIComponent(cookieStoreId) });
 });
   
   // Get current conversation ID from URL
