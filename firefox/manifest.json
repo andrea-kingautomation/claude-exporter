@@ -1,13 +1,14 @@
 {
   "manifest_version": 2,
-  "name": "Claude Exporter",
-  "version": "1.8.10",
+  "name": "Claude Exporter (Multi-Container)",
+  "version": "1.8.10-containers",
   "description": "Export conversations and artifacts from Claude.ai",
   "permissions": [
     "activeTab",
     "storage",
     "tabs",
-    "https://claude.ai/*"
+    "https://claude.ai/*",
+    "contextualIdentities"
   ],
   "browser_action": {
     "default_popup": "popup.html",
@@ -19,13 +20,23 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://claude.ai/*"],
-      "js": ["jszip.min.js", "utils.js", "content.js"],
-      "css": ["content.css"]
+      "matches": [
+        "https://claude.ai/*"
+      ],
+      "js": [
+        "jszip.min.js",
+        "utils.js",
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ]
     }
   ],
   "background": {
-    "scripts": ["background.js"]
+    "scripts": [
+      "background.js"
+    ]
   },
   "icons": {
     "16": "icon16.png",
@@ -36,13 +47,17 @@
     "page": "options.html",
     "open_in_tab": true
   },
-  "web_accessible_resources": ["browse.html"],
+  "web_accessible_resources": [
+    "browse.html"
+  ],
   "browser_specific_settings": {
     "gecko": {
       "id": "{25798758-c184-470a-bb5b-9fa76a09d9b5}",
       "strict_min_version": "79.0",
       "data_collection_permissions": {
-        "required": ["none"]
+        "required": [
+          "none"
+        ]
       }
     }
   }
