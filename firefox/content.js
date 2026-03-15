@@ -87,7 +87,7 @@ function inferModel(conversation) {
     while (true) {
       let url = `https://claude.ai/api/organizations/${orgId}/chat_conversations?limit=${PAGE_SIZE}`;
       if (lastId) {
-        url += `&before_conversation_id=${lastId}`;
+        url += `&before_id=${lastId}`;
       }
 
       const response = await fetch(url, {
@@ -110,7 +110,7 @@ function inferModel(conversation) {
 
       if (batch.length < PAGE_SIZE) break;
 
-      lastId = batch[batch.length - 1].uuid;
+      lastId = batch[batch.length - 1].uuid || batch[batch.length - 1].id;
     }
 
     return allConversations;
