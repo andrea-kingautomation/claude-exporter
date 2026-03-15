@@ -95,7 +95,7 @@ document.getElementById('testBtn').addEventListener('click', async () => {
   showStatus('testStatus', 'Testing connection...', 'success');
 
   try {
-    const response = await fetch(`https://claude.ai/api/organizations/${orgId}/chat_conversations`, {
+    const response = await fetch(`https://claude.ai/api/organizations/${orgId}/chat_conversations?limit=5`, {
       credentials: 'include',
       headers: { 'Accept': 'application/json' }
     });
