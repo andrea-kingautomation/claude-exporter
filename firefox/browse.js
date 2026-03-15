@@ -139,9 +139,9 @@ async function loadOrgId() {
 }
 
 // Helper function to find a claude.ai tab and send a message
-function sendMessageToClaudeTab(action, data) {
+function sendMessageToClaudeTab(action, data, cookieStoreId) {
   return new Promise((resolve, reject) => {
-    // Find a claude.ai tab using callback
+    // Query all claude.ai tabs
     chrome.tabs.query({ url: 'https://claude.ai/*' }, (tabs) => {
       if (chrome.runtime.lastError) {
         reject(new Error(chrome.runtime.lastError.message));
@@ -149,12 +149,24 @@ function sendMessageToClaudeTab(action, data) {
       }
 
       if (!tabs || tabs.length === 0) {
-        reject(new Error('Please open a Claude.ai tab first to use this feature'));
+        reject(new Error('Please open a Claude.ai tab in the correct container first.'));
         return;
       }
 
-      // Send message to the first claude.ai tab
-      chrome.tabs.sendMessage(tabs[0].id, { action, ...data }, (response) => {
+      // Filter to the tab in the correct container when a cookieStoreId is provided
+      let targetTab = tabs[0];
+      if (cookieStoreId && cookieStoreId !== 'firefox-default') {
+        const containerTab = tabs.find(t => t.cookieStoreId === cookieStoreId);
+        if (containerTab) {
+          targetTab = containerTab;
+        } else {
+          reject(new Error('No Claude.ai tab found in this container. Please open claude.ai in the correct container tab first.'));
+          return;
+        }
+      }
+
+      // Send message to the matched claude.ai tab
+      chrome.tabs.sendMessage(targetTab.id, { action, ...data }, (response) => {
         if (chrome.runtime.lastError) {
           reject(new Error(chrome.runtime.lastError.message));
         } else if (response && response.success) {
@@ -172,7 +184,7 @@ async function loadProjects() {
   if (!orgId) return [];
 
   try {
-    const response = await sendMessageToClaudeTab('loadProjects', { orgId });
+    const response = await sendMessageToClaudeTab('loadProjects', { orgId }, cookieStoreId);
     const projects = response.projects;
     console.log(`Loaded ${projects.length} projects:`, projects);
 
@@ -200,7 +212,7 @@ async function loadConversations() {
     // Load projects first
     const projects = await loadProjects();
 
-    const response = await sendMessageToClaudeTab('loadConversations', { orgId });
+    const response = await sendMessageToClaudeTab('loadConversations', { orgId }, cookieStoreId);
     allConversations = response.conversations;
     console.log(`Loaded ${allConversations.length} conversations`);
 
@@ -600,21 +612,11 @@ async function exportConversation(conversationId, conversationName) {
   try {
     showToast(`Exporting ${conversationName}...`);
 
-    const response = await fetch(
-      `https://claude.ai/api/organizations/${orgId}/chat_conversations/${conversationId}?tree=True&rendering_mode=messages&render_all_tools=true`,
-      {
-        credentials: 'include',
-        headers: {
-          'Accept': 'application/json',
-        }
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch conversation: ${response.status}`);
+    const fetchResponse = await sendMessageToClaudeTab('fetchConversationData', { orgId, conversationId }, cookieStoreId);
+    const data = fetchResponse.data;
+    if (!data) {
+      throw new Error('No data returned from container tab');
     }
-
-    const data = await response.json();
 
     // Infer model if null
     data.model = inferModel(data);
@@ -798,21 +800,11 @@ async function exportAllFiltered() {
       const batch = conversationsToExport.slice(i, Math.min(i + batchSize, total));
       const promises = batch.map(async (conv) => {
         try {
-          const response = await fetch(
-            `https://claude.ai/api/organizations/${orgId}/chat_conversations/${conv.uuid}?tree=True&rendering_mode=messages&render_all_tools=true`,
-            {
-              credentials: 'include',
-              headers: {
-                'Accept': 'application/json',
-              }
-            }
-          );
-          
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
+          const fetchResp = await sendMessageToClaudeTab('fetchConversationData', { orgId, conversationId: conv.uuid }, cookieStoreId);
+          if (!fetchResp || !fetchResp.data) {
+            throw new Error('No data returned from container tab');
           }
-          
-          const data = await response.json();
+          const data = fetchResp.data;
 
           // Infer model if null
           data.model = inferModel(data);
