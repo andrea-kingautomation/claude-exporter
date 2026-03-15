@@ -77,11 +77,8 @@ function inferModel(conversation) {
   }
   
   // Fetch all conversations
-  async function fetchConversationsPage(orgId, offset) {
-    const PAGE_SIZE = 50;
-    // Try offset-based pagination - most universally supported
-    // Fall back gracefully if the API ignores offset (returns same results)
-    const url = `https://claude.ai/api/organizations/${orgId}/chat_conversations?limit=${PAGE_SIZE}&offset=${offset}`;
+  async function fetchConversationsPage(orgId) {
+    const url = `https://claude.ai/api/organizations/${orgId}/chat_conversations?limit=200`;
     const response = await fetch(url, {
       credentials: 'include',
       headers: { 'Accept': 'application/json' }
@@ -449,7 +446,7 @@ function inferModel(conversation) {
 
   // Handle loadConversations request from browse page
   if (request.action === 'loadConversations') {
-    fetchConversationsPage(request.orgId, request.offset || 0)
+    fetchConversationsPage(request.orgId)
       .then(conversations => {
         sendResponse({ success: true, conversations: conversations });
       })
