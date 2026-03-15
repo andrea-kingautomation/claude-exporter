@@ -213,14 +213,14 @@ async function loadConversations() {
     // Load projects first
     const projects = await loadProjects();
 
-    // Paginate: call content script once per page (50 convos each)
-    // This avoids the message-passing timeout that kills large single-response loads
     allConversations = [];
     let beforeId = null;
     let page = 0;
+    const MAX_PAGES = 40; // Hard cap: 40 pages x 50 = 2000 conversations max
+    const seenIds = new Set(); // Guard against infinite loop if cursor doesn't advance
 
-    while (true) {
-      // Update loading indicator with progress
+    while (page < MAX_PAGES) {
+      // Update loading indicator with live count
       const loadingEl = document.querySelector('.loading-message') || document.querySelector('[class*="loading"]');
       if (loadingEl) {
         loadingEl.textContent = `Loading conversations... (${allConversations.length} so far)`;
@@ -228,30 +228,41 @@ async function loadConversations() {
 
       const response = await sendMessageToClaudeTab('loadConversations', { orgId, beforeId }, cookieStoreId);
 
-      if (!response.success) {
-        if (page === 0) throw new Error(response.error || 'Failed to load conversations');
-        break; // Partial results on later pages - stop gracefully
+      if (!response || !response.success) {
+        if (page === 0) throw new Error((response && response.error) || 'Failed to load conversations');
+        break;
       }
 
       const batch = response.conversations || [];
       if (batch.length === 0) break;
 
+      // Deduplication guard: if the last ID we'd use as cursor is one we've seen, stop
+      const newLastId = response.lastId;
+      if (newLastId && seenIds.has(newLastId)) {
+        console.warn('Cursor not advancing, stopping pagination to avoid infinite loop');
+        allConversations = allConversations.concat(batch);
+        break;
+      }
+      if (newLastId) seenIds.add(newLastId);
+
       allConversations = allConversations.concat(batch);
       page++;
 
-      if (!response.hasMore || !response.lastId) break;
-      beforeId = response.lastId;
+      // Render progressively every 2 pages so user sees results sooner
+      if (page % 2 === 0) {
+        const partial = allConversations.map(conv => ({ ...conv, model: inferModel(conv) }));
+        allConversations = partial;
+        applyFiltersAndSort();
+      }
+
+      if (!response.hasMore || !newLastId) break;
+      beforeId = newLastId;
     }
 
     console.log(`Loaded ${allConversations.length} conversations across ${page} pages`);
 
-    // Infer models for conversations with null model
-    allConversations = allConversations.map(conv => ({
-      ...conv,
-      model: inferModel(conv)
-    }));
-
-    // Apply initial sort and display
+    // Final model inference and render
+    allConversations = allConversations.map(conv => ({ ...conv, model: inferModel(conv) }));
     applyFiltersAndSort();
 
   } catch (error) {
@@ -259,7 +270,6 @@ async function loadConversations() {
     showError(`Failed to load conversations: ${error.message}`);
   }
 }
-
 // Format model name for display
 function formatModelName(model) {
   if (!model || !model.startsWith('claude-')) {
