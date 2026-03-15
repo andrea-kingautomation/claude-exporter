@@ -492,6 +492,29 @@ function inferModel(conversation) {
 
     return true;
   }
+
+  if (request.action === 'fetchConversationData') {
+    // Fetch raw conversation JSON from the correct container session (for browse page exports)
+    fetch(`https://claude.ai/api/organizations/${request.orgId}/chat_conversations/${request.conversationId}?tree=True&rendering_mode=messages&render_all_tools=true`, {
+      credentials: 'include',
+      headers: { 'Accept': 'application/json' }
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        sendResponse({ success: true, data: data });
+      })
+      .catch(error => {
+        console.error('fetchConversationData error:', error);
+        sendResponse({ success: false, error: error.message });
+      });
+
+    return true;
+  }
   });
 
 } // End of double-injection guard
