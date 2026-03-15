@@ -77,45 +77,29 @@ function inferModel(conversation) {
   }
   
   // Fetch all conversations
-  async function fetchAllConversations(orgId) {
-    // Fetch in pages of 50 to avoid server-side timeouts on large accounts
+  async function fetchConversationsPage(orgId, beforeId) {
     const PAGE_SIZE = 50;
-    let allConversations = [];
-    let lastId = null;
-    let page = 0;
-
-    while (true) {
-      let url = `https://claude.ai/api/organizations/${orgId}/chat_conversations?limit=${PAGE_SIZE}`;
-      if (lastId) {
-        url += `&before_id=${lastId}`;
-      }
-
-      const response = await fetch(url, {
-        credentials: 'include',
-        headers: { 'Accept': 'application/json' }
-      });
-
-      if (!response.ok) {
-        if (page === 0) {
-          throw new Error(`Failed to fetch conversations: ${response.status}`);
-        }
-        break;
-      }
-
-      const batch = await response.json();
-      if (!Array.isArray(batch) || batch.length === 0) break;
-
-      allConversations = allConversations.concat(batch);
-      page++;
-
-      if (batch.length < PAGE_SIZE) break;
-
-      lastId = batch[batch.length - 1].uuid || batch[batch.length - 1].id;
+    let url = `https://claude.ai/api/organizations/${orgId}/chat_conversations?limit=${PAGE_SIZE}`;
+    if (beforeId) {
+      url += `&before_id=${beforeId}`;
     }
-
-    return allConversations;
+    const response = await fetch(url, {
+      credentials: 'include',
+      headers: { 'Accept': 'application/json' }
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch conversations: ${response.status}`);
+    }
+    const batch = await response.json();
+    if (!Array.isArray(batch)) {
+      throw new Error('Unexpected response format from conversations API');
+    }
+    return {
+      conversations: batch,
+      hasMore: batch.length === PAGE_SIZE,
+      lastId: batch.length > 0 ? (batch[batch.length - 1].uuid || batch[batch.length - 1].id) : null
+    };
   }
-
   // Handle messages from popup
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'exportConversation') {
@@ -470,18 +454,14 @@ function inferModel(conversation) {
 
   // Handle loadConversations request from browse page
   if (request.action === 'loadConversations') {
-    console.log('Load conversations request received from browse page');
-
-    fetchAllConversations(request.orgId)
-      .then(conversations => {
-        sendResponse({ success: true, conversations: conversations });
+    // Single-page fetch - browse.js handles pagination loop to avoid message timeout
+    fetchConversationsPage(request.orgId, request.beforeId || null)
+      .then(result => {
+        sendResponse({ success: true, conversations: result.conversations, hasMore: result.hasMore, lastId: result.lastId });
       })
       .catch(error => {
         console.error('Load conversations error:', error);
-        sendResponse({
-          success: false,
-          error: error.message
-        });
+        sendResponse({ success: false, error: error.message });
       });
 
     return true;
