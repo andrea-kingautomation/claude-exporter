@@ -146,13 +146,24 @@
     .section p {
       color: var(--text-primary);
     }
+    .container-badge {
+      display: inline-block;
+      background: var(--primary-color);
+      color: white;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 20px;
+      margin-bottom: 16px;
+    }
   </style>
 </head>
 <body>
   <h1>Claude Conversation Exporter Settings</h1>
   
   <div class="instructions">
-    <h3>How to find your Organization ID:</h3>
+    <h3>Multi-Account Setup: Open this page from each container tab to configure separately.</h3>
+    <p style="margin-top:0; color: var(--text-secondary); font-size:13px;">How to find your Organization ID:</p>
     <ol>
       <li>Go to <a href="https://claude.ai/settings/account" target="_blank">claude.ai/settings/account</a></li>
       <li>Copy your Organization ID (e.g., <code>xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</code>) </li>
@@ -161,6 +172,7 @@
   </div>
 
   <div class="section">
+    <div id="containerBadge" class="container-badge">Loading container info...</div>
     <label for="orgId">Organization ID:</label>
     <input type="text" id="orgId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
     <div class="example">This is a UUID that looks like: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</div>
