@@ -147,9 +147,25 @@ document.getElementById('exportCurrent').addEventListener('click', async () => {
   
   // Browse conversations
   document.getElementById('browseConversations').addEventListener('click', async () => {
-    const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-    const cookieStoreId = (tab && tab.cookieStoreId) ? tab.cookieStoreId : 'firefox-default';
-    browser.tabs.create({ url: browser.runtime.getURL('browse.html') + '?container=' + encodeURIComponent(cookieStoreId), cookieStoreId: cookieStoreId });
+    // Find the claude.ai tab in the current window to get the right container
+    const claudeTabs = await browser.tabs.query({ url: 'https://claude.ai/*', currentWindow: true });
+    let cookieStoreId = 'firefox-default';
+    if (claudeTabs && claudeTabs.length > 0 && claudeTabs[0].cookieStoreId) {
+      cookieStoreId = claudeTabs[0].cookieStoreId;
+    } else {
+      // Fall back to active tab container
+      const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true });
+      if (activeTab && activeTab.cookieStoreId) {
+        cookieStoreId = activeTab.cookieStoreId;
+      }
+    }
+    const browseUrl = browser.runtime.getURL('browse.html') + '?container=' + encodeURIComponent(cookieStoreId);
+    // Only pass cookieStoreId when it's a real container (not firefox-default) to avoid errors
+    if (cookieStoreId !== 'firefox-default') {
+      browser.tabs.create({ url: browseUrl, cookieStoreId: cookieStoreId });
+    } else {
+      browser.tabs.create({ url: browseUrl });
+    }
   });
 
   // Export all conversations
