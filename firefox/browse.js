@@ -116,13 +116,22 @@ function inferModel(conversation) {
   return DEFAULT_MODEL_TIMELINE[0].model;
 }
 
-// Load organization ID from storage
+// Load organization ID from storage - container-aware
 async function loadOrgId() {
+  // Read the container ID passed via URL param from popup
+  const params = new URLSearchParams(window.location.search);
+  const cookieStoreId = params.get('container') || 'firefox-default';
+
   return new Promise((resolve) => {
-    chrome.storage.sync.get(['organizationId'], (result) => {
-      orgId = result.organizationId;
+    chrome.storage.sync.get(['containerOrgs', 'organizationId'], (result) => {
+      const containerOrgs = result.containerOrgs || {};
+      orgId = containerOrgs[cookieStoreId];
+      // Fallback to legacy single-value for default container
+      if (!orgId && cookieStoreId === 'firefox-default' && result.organizationId) {
+        orgId = result.organizationId;
+      }
       if (!orgId) {
-        showError('Organization ID not configured. Please configure it in the extension options.');
+        showError('Organization ID not configured for this container. Click the extension icon on a Claude tab in this container, then click the setup link.');
       }
       resolve();
     });
