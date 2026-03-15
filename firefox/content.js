@@ -77,12 +77,11 @@ function inferModel(conversation) {
   }
   
   // Fetch all conversations
-  async function fetchConversationsPage(orgId, beforeId) {
-    const PAGE_SIZE = 50;
-    let url = `https://claude.ai/api/organizations/${orgId}/chat_conversations?limit=${PAGE_SIZE}`;
-    if (beforeId) {
-      url += `&before_id=${beforeId}`;
-    }
+  async function fetchConversationsPage(orgId) {
+    // Fetch up to 200 conversations in one request.
+    // The internal API doesn't support reliable cursor pagination,
+    // so we use a high limit to get as many as possible without triggering a 500.
+    const url = `https://claude.ai/api/organizations/${orgId}/chat_conversations?limit=200`;
     const response = await fetch(url, {
       credentials: 'include',
       headers: { 'Accept': 'application/json' }
@@ -94,11 +93,7 @@ function inferModel(conversation) {
     if (!Array.isArray(batch)) {
       throw new Error('Unexpected response format from conversations API');
     }
-    return {
-      conversations: batch,
-      hasMore: batch.length === PAGE_SIZE,
-      lastId: batch.length > 0 ? (batch[batch.length - 1].uuid || batch[batch.length - 1].id) : null
-    };
+    return batch;
   }
   // Handle messages from popup
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -454,10 +449,9 @@ function inferModel(conversation) {
 
   // Handle loadConversations request from browse page
   if (request.action === 'loadConversations') {
-    // Single-page fetch - browse.js handles pagination loop to avoid message timeout
-    fetchConversationsPage(request.orgId, request.beforeId || null)
-      .then(result => {
-        sendResponse({ success: true, conversations: result.conversations, hasMore: result.hasMore, lastId: result.lastId });
+    fetchConversationsPage(request.orgId)
+      .then(conversations => {
+        sendResponse({ success: true, conversations: conversations });
       })
       .catch(error => {
         console.error('Load conversations error:', error);
