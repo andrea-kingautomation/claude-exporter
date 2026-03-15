@@ -77,11 +77,11 @@ function inferModel(conversation) {
   }
   
   // Fetch all conversations
-  async function fetchConversationsPage(orgId) {
-    // Fetch up to 200 conversations in one request.
-    // The internal API doesn't support reliable cursor pagination,
-    // so we use a high limit to get as many as possible without triggering a 500.
-    const url = `https://claude.ai/api/organizations/${orgId}/chat_conversations?limit=200`;
+  async function fetchConversationsPage(orgId, offset) {
+    const PAGE_SIZE = 50;
+    // Try offset-based pagination - most universally supported
+    // Fall back gracefully if the API ignores offset (returns same results)
+    const url = `https://claude.ai/api/organizations/${orgId}/chat_conversations?limit=${PAGE_SIZE}&offset=${offset}`;
     const response = await fetch(url, {
       credentials: 'include',
       headers: { 'Accept': 'application/json' }
@@ -449,7 +449,7 @@ function inferModel(conversation) {
 
   // Handle loadConversations request from browse page
   if (request.action === 'loadConversations') {
-    fetchConversationsPage(request.orgId)
+    fetchConversationsPage(request.orgId, request.offset || 0)
       .then(conversations => {
         sendResponse({ success: true, conversations: conversations });
       })
