@@ -19,8 +19,27 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-// Handle messages from popup when content script might not be injected
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+// Handle messages from popup
+browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
+
+  // Open a URL inside a specific container — only background scripts can do this reliably
+  if (request.action === 'openTabInContainer') {
+    const createProps = { url: request.url };
+    if (request.cookieStoreId && request.cookieStoreId !== 'firefox-default') {
+      createProps.cookieStoreId = request.cookieStoreId;
+    }
+    browser.tabs.create(createProps).then(() => {
+      sendResponse({ success: true });
+    }).catch(err => {
+      console.error('openTabInContainer error:', err);
+      // Fallback: open without container
+      browser.tabs.create({ url: request.url });
+      sendResponse({ success: true });
+    });
+    return true;
+  }
+
+  // Ensure content script is injected
   if (request.action === 'ensureContentScript') {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]) {
@@ -38,4 +57,5 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
     return true;
   }
+
 });
