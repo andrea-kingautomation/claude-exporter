@@ -77,8 +77,11 @@ function inferModel(conversation) {
   }
   
   // Fetch all conversations
-  async function fetchConversationsPage(orgId) {
-    const url = `https://claude.ai/api/organizations/${orgId}/chat_conversations?limit=200`;
+  async function fetchConversationsPage(orgId, offset) {
+    const PAGE_SIZE = 30;
+    // Use the v2 endpoint with offset pagination and consistency=eventual
+    // (discovered from Claude's own network traffic)
+    const url = `https://claude.ai/api/organizations/${orgId}/chat_conversations_v2?limit=${PAGE_SIZE}&offset=${offset}&consistency=eventual`;
     const response = await fetch(url, {
       credentials: 'include',
       headers: { 'Accept': 'application/json' }
@@ -86,11 +89,12 @@ function inferModel(conversation) {
     if (!response.ok) {
       throw new Error(`Failed to fetch conversations: ${response.status}`);
     }
-    const batch = await response.json();
-    if (!Array.isArray(batch)) {
-      throw new Error('Unexpected response format from conversations API');
-    }
-    return batch;
+    const data = await response.json();
+    // v2 returns { conversations: [...] } or just an array
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.conversations)) return data.conversations;
+    if (data && Array.isArray(data.data)) return data.data;
+    throw new Error('Unexpected response format from conversations API v2');
   }
   // Handle messages from popup
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -446,7 +450,7 @@ function inferModel(conversation) {
 
   // Handle loadConversations request from browse page
   if (request.action === 'loadConversations') {
-    fetchConversationsPage(request.orgId)
+    fetchConversationsPage(request.orgId, request.offset || 0)
       .then(conversations => {
         sendResponse({ success: true, conversations: conversations });
       })
