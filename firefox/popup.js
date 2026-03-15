@@ -58,10 +58,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Handle options link click
 document.getElementById('openOptions').addEventListener('click', async (e) => {
   e.preventDefault();
-  // Pass the current tab's container ID so options page configures the right account
-  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-  const cookieStoreId = (tab && tab.cookieStoreId) ? tab.cookieStoreId : 'firefox-default';
-  chrome.tabs.create({ url: chrome.runtime.getURL('options.html') + '?container=' + encodeURIComponent(cookieStoreId) });
+  // Get container ID from the active claude.ai tab
+  const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true });
+  const cookieStoreId = (activeTab && activeTab.cookieStoreId) ? activeTab.cookieStoreId : 'firefox-default';
+  const optionsUrl = browser.runtime.getURL('options.html') + '?container=' + encodeURIComponent(cookieStoreId);
+  // Ask background script to open options in the correct container
+  browser.runtime.sendMessage({ action: 'openTabInContainer', url: optionsUrl, cookieStoreId: cookieStoreId });
 });
   
   // Get current conversation ID from URL
@@ -147,25 +149,12 @@ document.getElementById('exportCurrent').addEventListener('click', async () => {
   
   // Browse conversations
   document.getElementById('browseConversations').addEventListener('click', async () => {
-    // Find the claude.ai tab in the current window to get the right container
-    const claudeTabs = await browser.tabs.query({ url: 'https://claude.ai/*', currentWindow: true });
-    let cookieStoreId = 'firefox-default';
-    if (claudeTabs && claudeTabs.length > 0 && claudeTabs[0].cookieStoreId) {
-      cookieStoreId = claudeTabs[0].cookieStoreId;
-    } else {
-      // Fall back to active tab container
-      const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true });
-      if (activeTab && activeTab.cookieStoreId) {
-        cookieStoreId = activeTab.cookieStoreId;
-      }
-    }
+    // Get the container ID from the active tab (the claude.ai tab the user is on)
+    const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true });
+    const cookieStoreId = (activeTab && activeTab.cookieStoreId) ? activeTab.cookieStoreId : 'firefox-default';
     const browseUrl = browser.runtime.getURL('browse.html') + '?container=' + encodeURIComponent(cookieStoreId);
-    // Only pass cookieStoreId when it's a real container (not firefox-default) to avoid errors
-    if (cookieStoreId !== 'firefox-default') {
-      browser.tabs.create({ url: browseUrl, cookieStoreId: cookieStoreId });
-    } else {
-      browser.tabs.create({ url: browseUrl });
-    }
+    // Ask background script to open the tab — background can reliably use cookieStoreId
+    browser.runtime.sendMessage({ action: 'openTabInContainer', url: browseUrl, cookieStoreId: cookieStoreId });
   });
 
   // Export all conversations
