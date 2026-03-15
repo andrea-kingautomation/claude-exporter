@@ -205,26 +205,37 @@ async function loadProjects() {
   }
 }
 
-// Load all conversations using offset pagination with dedup validation
+// Load all conversations using v2 API with offset pagination
 async function loadConversations() {
   if (!orgId) return;
 
   try {
     const projects = await loadProjects();
 
-    const response = await sendMessageToClaudeTab('loadConversations', { orgId }, cookieStoreId);
+    const PAGE_SIZE = 30;
+    allConversations = [];
+    let offset = 0;
 
-    if (!response || !response.success) {
-      throw new Error((response && response.error) || 'Failed to load conversations');
+    while (true) {
+      const response = await sendMessageToClaudeTab('loadConversations', { orgId, offset }, cookieStoreId);
+
+      if (!response || !response.success) {
+        if (allConversations.length === 0) throw new Error((response && response.error) || 'Failed to load conversations');
+        break;
+      }
+
+      const batch = response.conversations || [];
+      if (batch.length === 0) break;
+
+      allConversations = allConversations.concat(batch);
+
+      // v2 returns exactly PAGE_SIZE items when more exist, fewer when done
+      if (batch.length < PAGE_SIZE) break;
+
+      offset += PAGE_SIZE;
     }
 
-    allConversations = response.conversations || [];
-
-    allConversations = allConversations.map(conv => ({
-      ...conv,
-      model: inferModel(conv)
-    }));
-
+    allConversations = allConversations.map(conv => ({ ...conv, model: inferModel(conv) }));
     applyFiltersAndSort();
 
   } catch (error) {
