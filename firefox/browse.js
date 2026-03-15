@@ -212,58 +212,14 @@ async function loadConversations() {
   try {
     const projects = await loadProjects();
 
-    const PAGE_SIZE = 50;
-    allConversations = [];
-    let offset = 0;
-    const seenUuids = new Set();
-    let offsetWorking = true; // Track whether offset param is actually advancing results
+    const response = await sendMessageToClaudeTab('loadConversations', { orgId }, cookieStoreId);
 
-    while (true) {
-      // Update loading indicator
-      const boxes = document.querySelectorAll('.loading');
-      boxes.forEach(el => { el.textContent = `Loading conversations... (${allConversations.length} so far)`; });
-
-      const response = await sendMessageToClaudeTab('loadConversations', { orgId, offset }, cookieStoreId);
-
-      if (!response || !response.success) {
-        if (allConversations.length === 0) throw new Error((response && response.error) || 'Failed to load conversations');
-        break;
-      }
-
-      const batch = response.conversations || [];
-      if (batch.length === 0) break;
-
-      // Check if offset is working: first item of page 2+ should differ from page 1
-      if (offset > 0 && batch.length > 0) {
-        const firstId = batch[0].uuid;
-        if (seenUuids.has(firstId)) {
-          // Offset param ignored by API - it keeps returning the same page
-          // Stop here, we already have all the API is willing to give us
-          offsetWorking = false;
-          console.log('Offset pagination not supported by API, stopping at', allConversations.length, 'conversations');
-          break;
-        }
-      }
-
-      // Add new conversations, skipping any duplicates
-      let newCount = 0;
-      for (const conv of batch) {
-        if (!seenUuids.has(conv.uuid)) {
-          seenUuids.add(conv.uuid);
-          allConversations.push(conv);
-          newCount++;
-        }
-      }
-
-      // If we got fewer than a full page, we've reached the end
-      if (batch.length < PAGE_SIZE) break;
-
-      offset += PAGE_SIZE;
+    if (!response || !response.success) {
+      throw new Error((response && response.error) || 'Failed to load conversations');
     }
 
-    console.log(`Loaded ${allConversations.length} conversations`);
+    allConversations = response.conversations || [];
 
-    // Infer models for conversations with null model
     allConversations = allConversations.map(conv => ({
       ...conv,
       model: inferModel(conv)
