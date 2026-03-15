@@ -205,7 +205,7 @@ async function loadProjects() {
   }
 }
 
-// Load all conversations
+// Load all conversations using page-by-page fetching to avoid message timeout
 async function loadConversations() {
   if (!orgId) return;
 
@@ -213,14 +213,37 @@ async function loadConversations() {
     // Load projects first
     const projects = await loadProjects();
 
-    const response = await sendMessageToClaudeTab('loadConversations', { orgId }, cookieStoreId);
-    allConversations = response.conversations;
-    console.log(`Loaded ${allConversations.length} conversations`);
+    // Paginate: call content script once per page (50 convos each)
+    // This avoids the message-passing timeout that kills large single-response loads
+    allConversations = [];
+    let beforeId = null;
+    let page = 0;
 
-    // Log first conversation to see structure
-    if (allConversations.length > 0) {
-      console.log('Sample conversation structure:', allConversations[0]);
+    while (true) {
+      // Update loading indicator with progress
+      const loadingEl = document.querySelector('.loading-message') || document.querySelector('[class*="loading"]');
+      if (loadingEl) {
+        loadingEl.textContent = `Loading conversations... (${allConversations.length} so far)`;
+      }
+
+      const response = await sendMessageToClaudeTab('loadConversations', { orgId, beforeId }, cookieStoreId);
+
+      if (!response.success) {
+        if (page === 0) throw new Error(response.error || 'Failed to load conversations');
+        break; // Partial results on later pages - stop gracefully
+      }
+
+      const batch = response.conversations || [];
+      if (batch.length === 0) break;
+
+      allConversations = allConversations.concat(batch);
+      page++;
+
+      if (!response.hasMore || !response.lastId) break;
+      beforeId = response.lastId;
     }
+
+    console.log(`Loaded ${allConversations.length} conversations across ${page} pages`);
 
     // Infer models for conversations with null model
     allConversations = allConversations.map(conv => ({
@@ -230,7 +253,7 @@ async function loadConversations() {
 
     // Apply initial sort and display
     applyFiltersAndSort();
-    
+
   } catch (error) {
     console.error('Error loading conversations:', error);
     showError(`Failed to load conversations: ${error.message}`);
