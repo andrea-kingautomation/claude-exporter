@@ -18,11 +18,11 @@ async function getContainerName(cookieStoreId) {
 // Migrate old single organizationId to containerOrgs map (one-time, backward compat)
 async function migrateIfNeeded() {
   return new Promise((resolve) => {
-    chrome.storage.sync.get(['organizationId', 'containerOrgs'], (result) => {
+    browser.storage.local.get(['organizationId', 'containerOrgs'], (result) => {
       if (result.organizationId && !result.containerOrgs) {
         const containerOrgs = { 'firefox-default': result.organizationId };
-        chrome.storage.sync.set({ containerOrgs }, () => {
-          chrome.storage.sync.remove('organizationId', resolve);
+        browser.storage.local.set({ containerOrgs }, () => {
+          browser.storage.local.remove('organizationId', resolve);
         });
       } else {
         resolve();
@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Load saved org ID for this container
-  chrome.storage.sync.get(['containerOrgs'], (result) => {
+  browser.storage.local.get(['containerOrgs'], (result) => {
     const containerOrgs = result.containerOrgs || {};
     const savedOrgId = containerOrgs[cookieStoreId] || '';
     if (savedOrgId) {
@@ -74,10 +74,10 @@ document.getElementById('saveBtn').addEventListener('click', () => {
   }
 
   // Load existing map, update this container's entry, save back
-  chrome.storage.sync.get(['containerOrgs'], (result) => {
+  browser.storage.local.get(['containerOrgs'], (result) => {
     const containerOrgs = result.containerOrgs || {};
     containerOrgs[cookieStoreId] = orgId;
-    chrome.storage.sync.set({ containerOrgs }, () => {
+    browser.storage.local.set({ containerOrgs }, () => {
       showStatus('status', 'Settings saved successfully!', 'success');
     });
   });
