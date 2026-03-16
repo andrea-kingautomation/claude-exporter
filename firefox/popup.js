@@ -4,7 +4,7 @@ async function getOrgId() {
   const cookieStoreId = (tab && tab.cookieStoreId) ? tab.cookieStoreId : 'firefox-default';
 
   return new Promise((resolve) => {
-    chrome.storage.sync.get(['containerOrgs', 'organizationId'], (result) => {
+    browser.storage.local.get(['containerOrgs', 'organizationId'], (result) => {
       const containerOrgs = result.containerOrgs || {};
       let orgId = containerOrgs[cookieStoreId];
       // Fallback to legacy single-value for default container (pre-migration)
